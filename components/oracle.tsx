@@ -1,7 +1,7 @@
 'use client';
 
 import { useRouter } from 'next/navigation';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import type { Area } from '@/lib/areas';
 import type { OracleData } from '@/lib/weather';
 import type { ScoreResult } from '@/lib/score';
@@ -27,6 +27,12 @@ function value(value: number | null, suffix = ''): string {
 export function Oracle({ areas, selectedArea, data, result }: OracleProps) {
   const router = useRouter();
   const [claimCount, setClaimCount] = useState<number | null>(null);
+  const [tone, setTone] = useState<'corporate' | 'dramatic' | 'desi'>('corporate');
+  const [excuse, setExcuse] = useState<string | null>(null);
+  const [excuseSource, setExcuseSource] = useState<'llm' | 'fallback' | null>(null);
+  const [isGenerating, setIsGenerating] = useState(false);
+  const [excuseStatus, setExcuseStatus] = useState('');
+  const [shareStatus, setShareStatus] = useState('');
   const style = verdictStyles[result.verdict];
   const roast = getRoast(result.verdict, {
     rainProbability: data.weather.rainProbability,
@@ -37,6 +43,77 @@ export function Oracle({ areas, selectedArea, data, result }: OracleProps) {
 
   function changeArea(areaName: string) {
     router.replace(`/?area=${encodeURIComponent(areaName)}`, { scroll: false });
+  }
+
+  useEffect(() => {
+    try {
+      const saved = Number(window.localStorage.getItem('wfh-days-claimed'));
+      if (Number.isFinite(saved) && saved > 0) setClaimCount(saved);
+    } catch {
+      // Local storage is a convenience, never a requirement.
+    }
+  }, []);
+
+  async function generateExcuse() {
+    setIsGenerating(true);
+    setExcuseStatus('');
+    try {
+      const response = await fetch('/api/excuse', {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({
+          area: selectedArea.name,
+          tone,
+          verdict: result.verdict,
+          factors: {
+            rainProbability: data.weather.rainProbability ?? 0,
+            rainMm: data.weather.rainMm ?? 0,
+            aqi: data.airQuality.aqi ?? 0,
+            temperature: data.weather.temperatureC ?? 0,
+            windSpeed: data.weather.windSpeedKph ?? 0,
+            commutePoints: result.factors.commute.points,
+          },
+        }),
+      });
+      const payload = await response.json();
+      if (!response.ok || typeof payload.excuse !== 'string') throw new Error('The memo machine is taking a chai break.');
+      setExcuse(payload.excuse);
+      setExcuseSource(payload.source === 'llm' ? 'llm' : 'fallback');
+    } catch (error) {
+      setExcuseStatus(error instanceof Error ? error.message : 'Could not generate an excuse. Try again.');
+    } finally {
+      setIsGenerating(false);
+    }
+  }
+
+  async function copyText(text: string, successMessage: string) {
+    try {
+      await navigator.clipboard.writeText(text);
+      setExcuseStatus(successMessage);
+    } catch {
+      setExcuseStatus('Copy was blocked. Select the text manually — technology has chosen drama.');
+    }
+  }
+
+  async function shareResult() {
+    const params = new URLSearchParams({ verdict: result.verdict, score: String(result.score), area: selectedArea.name, tone });
+    const url = `${window.location.origin}/api/card?${params.toString()}`;
+    try {
+      if (navigator.share) {
+        await navigator.share({ title: 'Should I WFH Today?', text: `${result.verdict}: ${selectedArea.name} scored ${result.score}/100`, url });
+        setShareStatus('Shared. Go forth and influence the commute discourse.');
+      } else {
+        await navigator.clipboard.writeText(url);
+        setShareStatus('Card link copied. Drop it in the group chat.');
+      }
+    } catch {
+      try {
+        await navigator.clipboard.writeText(url);
+        setShareStatus('Share sheet said no; card link copied instead.');
+      } catch {
+        setShareStatus('Could not share automatically. Copy the card URL from your browser.');
+      }
+    }
   }
 
   function claimWfh() {
@@ -95,6 +172,42 @@ export function Oracle({ areas, selectedArea, data, result }: OracleProps) {
             <Factor label="WIND" value={`+${result.factors.wind.points}`} detail={value(result.factors.wind.speedKph, ' km/h')} />
           </div>
         </div>
+      </section>
+
+      <section className="mx-auto mt-4 max-w-3xl rounded-2xl border-2 border-[var(--ink)] bg-[var(--panel)] p-4 shadow-sm sm:p-5">
+        <div className="flex flex-col justify-between gap-4 sm:flex-row sm:items-end">
+          <div>
+            <p className="text-xs font-black uppercase tracking-[0.16em] text-[var(--muted)]">The manager memo machine</p>
+            <h2 className="mt-1 text-xl font-black">Need an official-sounding excuse?</h2>
+          </div>
+          <div className="flex gap-1 rounded-xl bg-slate-100 p-1 dark:bg-slate-800" role="radiogroup" aria-label="Excuse tone">
+            {(['corporate', 'dramatic', 'desi'] as const).map((option) => (
+              <button key={option} type="button" role="radio" aria-checked={tone === option} onClick={() => setTone(option)} className={`rounded-lg px-3 py-2 text-xs font-black capitalize transition focus:outline-none focus:ring-2 focus:ring-yellow-400 ${tone === option ? 'bg-[var(--ink)] text-white' : 'text-[var(--muted)] hover:text-[var(--ink)]'}`}>
+                {option}
+              </button>
+            ))}
+          </div>
+        </div>
+        <button type="button" onClick={generateExcuse} disabled={isGenerating} className="mt-4 w-full rounded-xl bg-yellow-300 px-4 py-3 text-sm font-black text-slate-900 transition hover:bg-yellow-200 focus:outline-none focus:ring-4 focus:ring-yellow-400 disabled:cursor-wait disabled:opacity-60">
+          {isGenerating ? 'Consulting the forecast...' : 'Generate my excuse'}
+        </button>
+        {excuse && <div className="mt-4 rounded-xl border border-[var(--line)] bg-white/50 p-4 dark:bg-slate-900/40">
+          <p className="text-base font-semibold leading-relaxed">“{excuse}”</p>
+          <div className="mt-3 flex flex-wrap items-center gap-3">
+            <button type="button" onClick={() => copyText(excuse, 'Excuse copied. Deploy responsibly.')} className="rounded-lg border border-[var(--ink)] px-3 py-2 text-xs font-black transition hover:bg-[var(--ink)] hover:text-white focus:outline-none focus:ring-2 focus:ring-yellow-400">Copy excuse</button>
+            <span className="text-xs font-semibold text-[var(--muted)]">{excuseSource === 'llm' ? 'freshly generated' : 'handwritten fallback, still legally unconvincing'}</span>
+          </div>
+        </div>}
+        {excuseStatus && <p role="status" className="mt-3 text-xs font-bold text-[var(--muted)]">{excuseStatus}</p>}
+      </section>
+
+      <section className="mx-auto mt-4 flex max-w-3xl flex-col gap-3 rounded-2xl border border-[var(--line)] bg-[var(--panel)] p-4 sm:flex-row sm:items-center sm:justify-between">
+        <div>
+          <p className="text-xs font-black uppercase tracking-[0.16em] text-[var(--muted)]">Screenshot your alibi</p>
+          <p className="mt-1 text-sm font-semibold">Share a 1200 × 630 result card.</p>
+        </div>
+        <button type="button" onClick={shareResult} className="rounded-xl border-2 border-[var(--ink)] px-4 py-3 text-sm font-black transition hover:bg-[var(--ink)] hover:text-white focus:outline-none focus:ring-4 focus:ring-yellow-300">Share result</button>
+        {shareStatus && <p role="status" className="text-xs font-bold text-[var(--muted)] sm:max-w-[12rem]">{shareStatus}</p>}
       </section>
 
       <section className="mx-auto mt-4 grid max-w-3xl gap-4 sm:grid-cols-[1fr_auto]">

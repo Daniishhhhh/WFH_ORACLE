@@ -15,13 +15,13 @@
   - Acceptance: all ten areas produce a real or fallback verdict and the page renders on a 380px viewport.
 
 ## Step 2 — Excuse engine and share card
-- [ ] Add provider abstraction, fallback bank, validation, and best-effort IP rate limiting.
+- [x] Add provider abstraction, fallback bank, validation, and best-effort IP rate limiting.
   - Acceptance: at least 30 handwritten excuses exist; missing key, provider error, timeout, and rate limit return fallbacks.
-- [ ] Add tone selector, Generate, Copy, loading, and error states.
+- [x] Add tone selector, Generate, Copy, loading, and error states.
   - Acceptance: client never receives or bundles `LLM_API_KEY` and copy works when supported.
-- [ ] Add `/api/card` 1200×630 image route and Open Graph metadata.
+- [x] Add `/api/card` 1200×630 image route and Open Graph metadata.
   - Acceptance: all verdicts render; malformed params safely default rather than crash.
-- [ ] Add Web Share API with copy-link fallback.
+- [x] Add Web Share API with copy-link fallback.
   - Acceptance: share action works on both share-capable and clipboard-only browsers.
 
 ## Step 3 — Polish, safety, deploy
