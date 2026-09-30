@@ -1,0 +1,29 @@
+# dependencies
+/node_modules
+/.pnp
+.pnp.*
+
+# Next.js
+/.next
+/out
+
+# production
+/build
+
+# local env files — keep the template tracked
+.env*
+!.env.example
+
+# testing
+/coverage
+
+# misc
+.DS_Store
+*.log
+npm-debug.log*
+
+# Vercel
+.vercel
+
+# omnirush workspace metadata
+__agent__
