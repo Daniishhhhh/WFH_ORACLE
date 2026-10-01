@@ -5,8 +5,11 @@ import { getOracleData } from '@/lib/weather';
 
 export const dynamic = 'force-dynamic';
 
-export default async function Home({ searchParams }: { searchParams?: { area?: string | string[] } }) {
-  const selectedArea = getArea(searchParams?.area);
+type HomeSearchParams = { area?: string | string[] };
+
+export default async function Home({ searchParams }: { searchParams: Promise<HomeSearchParams> }) {
+  const params = await searchParams;
+  const selectedArea = getArea(params.area);
   const data = await getOracleData(selectedArea);
   const result = calculateScore({
     areaHellFactor: selectedArea.hellFactor,

@@ -8,6 +8,7 @@
   --ink: #172033;
   --muted: #687386;
   --line: #d9d4c8;
+  --grid-line: rgba(23, 32, 51, 0.035);
   --panel: rgba(255, 255, 255, 0.76);
 }
 
@@ -18,6 +19,7 @@
     --ink: #f7f3ea;
     --muted: #a9b0bd;
     --line: #30394a;
+    --grid-line: rgba(247, 243, 234, 0.045);
     --panel: rgba(24, 31, 45, 0.82);
   }
 }
@@ -25,6 +27,13 @@
 * { box-sizing: border-box; }
 
 html { min-width: 320px; }
+
+button, select { min-height: 44px; }
+
+:focus-visible {
+  outline: 3px solid #eab308;
+  outline-offset: 3px;
+}
 
 body {
   min-height: 100vh;
@@ -42,7 +51,7 @@ body {
 .display-font { font-family: var(--font-display), Impact, sans-serif; }
 
 .paper-grid {
-  background-image: linear-gradient(to right, rgba(23, 32, 51, 0.035) 1px, transparent 1px), linear-gradient(to bottom, rgba(23, 32, 51, 0.035) 1px, transparent 1px);
+  background-image: linear-gradient(to right, var(--grid-line) 1px, transparent 1px), linear-gradient(to bottom, var(--grid-line) 1px, transparent 1px);
   background-size: 24px 24px;
 }
 
@@ -55,5 +64,10 @@ body {
 
 @media (prefers-reduced-motion: reduce) {
   .verdict-reveal { animation: none; }
-  *, *::before, *::after { scroll-behavior: auto !important; }
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    scroll-behavior: auto !important;
+    transition-duration: 0.01ms !important;
+  }
 }

@@ -6,6 +6,7 @@ import type { Area } from '@/lib/areas';
 import type { OracleData } from '@/lib/weather';
 import type { ScoreResult } from '@/lib/score';
 import { getRoast } from '@/lib/roasts';
+import { claimDay, readClaimCount } from '@/lib/claims';
 
 type OracleProps = {
   areas: readonly Area[];
@@ -46,12 +47,10 @@ export function Oracle({ areas, selectedArea, data, result }: OracleProps) {
   }
 
   useEffect(() => {
-    try {
-      const saved = Number(window.localStorage.getItem('wfh-days-claimed'));
-      if (Number.isFinite(saved) && saved > 0) setClaimCount(saved);
-    } catch {
-      // Local storage is a convenience, never a requirement.
-    }
+    const timer = window.setTimeout(() => {
+      setClaimCount(readClaimCount(() => window.localStorage));
+    }, 0);
+    return () => window.clearTimeout(timer);
   }, []);
 
   async function generateExcuse() {
@@ -117,13 +116,7 @@ export function Oracle({ areas, selectedArea, data, result }: OracleProps) {
   }
 
   function claimWfh() {
-    try {
-      const next = Number(window.localStorage.getItem('wfh-days-claimed') ?? 0) + 1;
-      window.localStorage.setItem('wfh-days-claimed', String(next));
-      setClaimCount(next);
-    } catch {
-      setClaimCount((current) => (current ?? 0) + 1);
-    }
+    setClaimCount(claimDay(() => window.localStorage, claimCount ?? 0));
   }
 
   return (
@@ -153,7 +146,12 @@ export function Oracle({ areas, selectedArea, data, result }: OracleProps) {
         </select>
       </section>
 
-      <section className="verdict-reveal mx-auto mt-5 max-w-3xl overflow-hidden rounded-[2rem] border-2 border-[var(--ink)] bg-[var(--panel)] shadow-ink" aria-live="polite">
+      <section
+        key={`${selectedArea.name}-${result.verdict}-${result.score}`}
+        className="verdict-reveal mx-auto mt-5 max-w-3xl overflow-hidden rounded-[2rem] border-2 border-[var(--ink)] bg-[var(--panel)] shadow-ink"
+        aria-labelledby="verdict-heading"
+        aria-live="polite"
+      >
         <div className={`flex items-center justify-between gap-4 px-5 pb-3 pt-5 sm:px-8 sm:pt-7 ${style.bg}`}>
           <div>
             <p className="text-xs font-black uppercase tracking-[0.2em] text-slate-800/70">{selectedArea.name} · today</p>
@@ -162,7 +160,7 @@ export function Oracle({ areas, selectedArea, data, result }: OracleProps) {
           <div className="rounded-full border-2 border-slate-900 bg-white/60 px-3 py-1 text-xs font-black text-slate-900">{result.score}/100</div>
         </div>
         <div className="px-5 pb-6 pt-4 sm:px-8 sm:pb-8">
-          <p className={`display-font text-[6.5rem] leading-[0.78] tracking-wide sm:text-[9rem] ${style.ink}`}>{result.verdict}</p>
+          <h2 id="verdict-heading" className={`display-font text-[6.5rem] leading-[0.78] tracking-wide sm:text-[9rem] ${style.ink}`}>{result.verdict}</h2>
           <p className="mt-5 max-w-2xl text-lg font-semibold leading-snug sm:text-xl">{roast}</p>
           <div className="mt-6 grid grid-cols-2 gap-2 sm:grid-cols-5">
             <Factor label="RAIN" value={`+${result.factors.rain.points}`} detail={`${value(result.factors.rain.probability, '%')} · ${value(result.factors.rain.mm, 'mm')}`} />
@@ -174,52 +172,56 @@ export function Oracle({ areas, selectedArea, data, result }: OracleProps) {
         </div>
       </section>
 
-      <section className="mx-auto mt-4 max-w-3xl rounded-2xl border-2 border-[var(--ink)] bg-[var(--panel)] p-4 shadow-sm sm:p-5">
+      <section className="mx-auto mt-4 max-w-3xl rounded-2xl border-2 border-[var(--ink)] bg-[var(--panel)] p-4 shadow-sm sm:p-5" aria-labelledby="memo-heading" aria-busy={isGenerating}>
         <div className="flex flex-col justify-between gap-4 sm:flex-row sm:items-end">
           <div>
             <p className="text-xs font-black uppercase tracking-[0.16em] text-[var(--muted)]">The manager memo machine</p>
-            <h2 className="mt-1 text-xl font-black">Need an official-sounding excuse?</h2>
+            <h2 id="memo-heading" className="mt-1 text-xl font-black">Need an official-sounding excuse?</h2>
           </div>
-          <div className="flex gap-1 rounded-xl bg-slate-100 p-1 dark:bg-slate-800" role="radiogroup" aria-label="Excuse tone">
+          <fieldset className="flex min-w-0 shrink-0 gap-1 rounded-xl bg-slate-100 p-1 dark:bg-slate-800">
+            <legend className="sr-only">Excuse tone</legend>
             {(['corporate', 'dramatic', 'desi'] as const).map((option) => (
-              <button key={option} type="button" role="radio" aria-checked={tone === option} onClick={() => setTone(option)} className={`rounded-lg px-3 py-2 text-xs font-black capitalize transition focus:outline-none focus:ring-2 focus:ring-yellow-400 ${tone === option ? 'bg-[var(--ink)] text-white' : 'text-[var(--muted)] hover:text-[var(--ink)]'}`}>
-                {option}
-              </button>
+              <label key={option} className="cursor-pointer">
+                <input type="radio" name="excuse-tone" value={option} checked={tone === option} onChange={() => setTone(option)} className="peer sr-only" />
+                <span className="flex min-h-11 items-center rounded-lg px-3 py-2 text-xs font-black capitalize text-[var(--muted)] transition peer-checked:bg-[var(--ink)] peer-checked:text-[var(--paper)] peer-focus-visible:outline peer-focus-visible:outline-2 peer-focus-visible:outline-offset-2 peer-focus-visible:outline-[var(--ink)]">
+                  {option}
+                </span>
+              </label>
             ))}
-          </div>
+          </fieldset>
         </div>
-        <button type="button" onClick={generateExcuse} disabled={isGenerating} className="mt-4 w-full rounded-xl bg-yellow-300 px-4 py-3 text-sm font-black text-slate-900 transition hover:bg-yellow-200 focus:outline-none focus:ring-4 focus:ring-yellow-400 disabled:cursor-wait disabled:opacity-60">
+        <button type="button" onClick={generateExcuse} disabled={isGenerating} aria-controls="excuse-result" className="mt-4 w-full rounded-xl bg-yellow-300 px-4 py-3 text-sm font-black text-slate-900 transition hover:bg-yellow-200 focus:outline-none focus:ring-4 focus:ring-yellow-400 disabled:cursor-wait disabled:opacity-60">
           {isGenerating ? 'Consulting the forecast...' : 'Generate my excuse'}
         </button>
-        {excuse && <div className="mt-4 rounded-xl border border-[var(--line)] bg-white/50 p-4 dark:bg-slate-900/40">
+        {excuse && <div id="excuse-result" className="mt-4 rounded-xl border border-[var(--line)] bg-white/50 p-4 dark:bg-slate-900/40" aria-live="polite" aria-atomic="true">
           <p className="text-base font-semibold leading-relaxed">“{excuse}”</p>
           <div className="mt-3 flex flex-wrap items-center gap-3">
-            <button type="button" onClick={() => copyText(excuse, 'Excuse copied. Deploy responsibly.')} className="rounded-lg border border-[var(--ink)] px-3 py-2 text-xs font-black transition hover:bg-[var(--ink)] hover:text-white focus:outline-none focus:ring-2 focus:ring-yellow-400">Copy excuse</button>
+            <button type="button" onClick={() => copyText(excuse, 'Excuse copied. Deploy responsibly.')} className="rounded-lg border border-[var(--ink)] px-3 py-2 text-xs font-black transition hover:bg-[var(--ink)] hover:text-[var(--paper)] focus:outline-none focus:ring-2 focus:ring-yellow-400">Copy excuse</button>
             <span className="text-xs font-semibold text-[var(--muted)]">{excuseSource === 'llm' ? 'freshly generated' : 'handwritten fallback, still legally unconvincing'}</span>
           </div>
         </div>}
         {excuseStatus && <p role="status" className="mt-3 text-xs font-bold text-[var(--muted)]">{excuseStatus}</p>}
       </section>
 
-      <section className="mx-auto mt-4 flex max-w-3xl flex-col gap-3 rounded-2xl border border-[var(--line)] bg-[var(--panel)] p-4 sm:flex-row sm:items-center sm:justify-between">
+      <section className="mx-auto mt-4 flex max-w-3xl flex-col gap-3 rounded-2xl border border-[var(--line)] bg-[var(--panel)] p-4 sm:flex-row sm:items-center sm:justify-between" aria-labelledby="share-heading">
         <div>
           <p className="text-xs font-black uppercase tracking-[0.16em] text-[var(--muted)]">Screenshot your alibi</p>
-          <p className="mt-1 text-sm font-semibold">Share a 1200 × 630 result card.</p>
+          <h2 id="share-heading" className="mt-1 text-sm font-semibold">Share a 1200 × 630 result card.</h2>
         </div>
-        <button type="button" onClick={shareResult} className="rounded-xl border-2 border-[var(--ink)] px-4 py-3 text-sm font-black transition hover:bg-[var(--ink)] hover:text-white focus:outline-none focus:ring-4 focus:ring-yellow-300">Share result</button>
+        <button type="button" onClick={shareResult} className="rounded-xl border-2 border-[var(--ink)] px-4 py-3 text-sm font-black transition hover:bg-[var(--ink)] hover:text-[var(--paper)] focus:outline-none focus:ring-4 focus:ring-yellow-300">Share result</button>
         {shareStatus && <p role="status" className="text-xs font-bold text-[var(--muted)] sm:max-w-[12rem]">{shareStatus}</p>}
       </section>
 
-      <section className="mx-auto mt-4 grid max-w-3xl gap-4 sm:grid-cols-[1fr_auto]">
+      <section className="mx-auto mt-4 grid max-w-3xl gap-4 sm:grid-cols-[1fr_auto]" aria-labelledby="why-heading">
         <div className="rounded-2xl border border-[var(--line)] bg-[var(--panel)] p-4">
-          <p className="text-xs font-black uppercase tracking-[0.16em] text-[var(--muted)]">Why this number?</p>
+          <h2 id="why-heading" className="text-xs font-black uppercase tracking-[0.16em] text-[var(--muted)]">Why this number?</h2>
           <p className="mt-2 text-sm leading-relaxed text-[var(--muted)]">Rain gets up to 40 points, commute hell up to 17, then heat, air quality, and wind bring the chaos. It is a heuristic, not a legal defence.</p>
           {data.partial && <p className="mt-3 rounded-xl bg-yellow-100 px-3 py-2 text-xs font-bold text-yellow-900 dark:bg-yellow-300/20 dark:text-yellow-100">Some data is partly unavailable. We scored what survived.</p>}
         </div>
-        <button type="button" onClick={claimWfh} className="rounded-2xl border-2 border-[var(--ink)] bg-[var(--ink)] px-5 py-4 text-left text-white shadow-ink transition hover:-translate-y-0.5 focus:outline-none focus:ring-4 focus:ring-yellow-300">
+        <button type="button" onClick={claimWfh} className="rounded-2xl border-2 border-[var(--ink)] bg-slate-900 px-5 py-4 text-left text-white shadow-ink transition motion-safe:hover:-translate-y-0.5 focus:outline-none focus:ring-4 focus:ring-yellow-300">
           <span className="block text-xs font-black uppercase tracking-[0.16em] text-yellow-300">Make it official</span>
           <span className="mt-1 block font-bold">I&apos;m working from home</span>
-          <span className="mt-2 block text-xs text-slate-300">{claimCount === null ? 'Count this day on this device' : `${claimCount} day${claimCount === 1 ? '' : 's'} claimed here`}</span>
+          <span aria-live="polite" className="mt-2 block text-xs text-slate-300">{claimCount === null || claimCount === 0 ? 'Count this day on this device' : `${claimCount} day${claimCount === 1 ? '' : 's'} claimed here`}</span>
         </button>
       </section>
 

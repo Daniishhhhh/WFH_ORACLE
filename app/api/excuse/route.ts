@@ -33,7 +33,9 @@ function invalid(): NextResponse {
 export async function POST(request: NextRequest) {
   let body: RequestBody;
   try {
-    body = (await request.json()) as RequestBody;
+    const parsed: unknown = await request.json();
+    if (parsed === null || typeof parsed !== 'object' || Array.isArray(parsed)) return invalid();
+    body = parsed as RequestBody;
   } catch {
     return invalid();
   }

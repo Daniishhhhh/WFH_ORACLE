@@ -25,13 +25,13 @@
   - Acceptance: share action works on both share-capable and clipboard-only browsers.
 
 ## Step 3 — Polish, safety, deploy
-- [ ] Add reveal animation, system dark mode, localStorage claim counter, and accessibility basics.
+- [x] Add reveal animation, system dark mode, localStorage claim counter, and accessibility basics.
   - Acceptance: keyboard focus, labels, contrast, reduced motion, and explicit claim action are present.
-- [ ] Add favicon, title, meta description, and responsive visual polish.
+- [x] Add favicon, title, meta description, and responsive visual polish.
   - Acceptance: first screen is screenshot-worthy and readable at 380px.
-- [ ] Add README with screenshot placeholder, setup, environment table, and how-it-works.
+- [x] Add README with screenshot placeholder, setup, environment table, and how-it-works.
   - Acceptance: a new developer can run the app without guessing.
-- [ ] Add `docs/DEPLOY.md` with Vercel import, env setup, and production smoke checks.
+- [x] Add `docs/DEPLOY.md` with Vercel import, env setup, and production smoke checks.
   - Acceptance: checklist covers `/api/card`, `/api/excuse`, API fallback behavior, and secret checks.
-- [ ] Run final build/tests and inspect git history for real secrets.
+- [x] Run final build/tests and inspect git history for real secrets.
   - Acceptance: build/tests pass and `git log -p | grep -i key` finds no real credential.

@@ -17,6 +17,7 @@ const body = DM_Sans({
 
 export const metadata: Metadata = {
   metadataBase: new URL(process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000'),
+  icons: { icon: '/favicon.svg' },
   title: 'Should I WFH Today? — Bengaluru Edition',
   description: 'A weather-powered Bengaluru oracle for the daily WFH decision.',
   openGraph: {
